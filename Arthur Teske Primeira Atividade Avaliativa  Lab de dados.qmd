@@ -1,0 +1,192 @@
+---
+title: "Gráficos - Arthur"
+format: 
+  html:
+    theme: darkly
+editor: visual
+---
+
+```{r}
+#| label: load-packages
+#| include: false
+
+library(tidyverse)
+library(palmerpenguins)
+```
+
+## Atividade Avaliativa I
+
+Apresentação da primeira atividade avaliativa da matéria de laboratório de dados, quinto semestre de ciências econômicas da instituição FURB, 2025.
+
+## Gráfico de Dispersão
+
+No gráfico abaixo podemos identificar a relação entre importações e exportações de algumas das principais economias do mundo em 2023. A dispersão revela que países como os Estados Unidos e a China se destacam com os maiores volumes de importações e exportações, ambos superando 3000 bilhões de dólares em cada categoria, o que reflete suas posições como potências econômicas globais. A Alemanha também apresenta valores elevados, com exportações e importações próximas de 2000 bilhões de dólares, evidenciando sua forte presença no comércio internacional.
+
+Por outro lado, o Brasil, a Índia, o Japão, a Itália e a França possuem volumes menores, todos abaixo de 1000 bilhões de dólares, com o Brasil registrando os menores valores entre os países analisados, com importações e exportações em torno de 500 bilhões de dólares. A proximidade dos pontos à diagonal implícita sugere uma relação relativamente equilibrada entre importações e exportações para a maioria desses países, indicando que o valor das importações tende a acompanhar o das exportações.
+
+As variáveis utilizadas para compor o gráfico foram extraídas do banco de dados do Banco Mundial (WDI), sendo elas:\
+**Importações de bens e serviços (US\$ atuais)** — código **NE.IMP.GNFS.CD**\
+**Exportações de bens e serviços (US\$ atuais)** — código **NE.EXP.GNFS.CD**
+
+```{r}
+#| label: plot-penguins
+#| echo: false
+#| warning: false
+##CORTE  TRANSVERSAL
+### COLETAR DADOS DE DUAS VARIÁVEIS
+#PACOTES####
+#install.packages('WDI') #PRIMEIRO A EXECUTAR
+library(WDI)
+library(ggplot2)
+library(scales)
+library(ggrepel)
+library(dplyr)  # Para usar a função recode
+options(scipen = 9)
+
+# Variáveis
+variaveis <- c("IMP" = 'NE.IMP.GNFS.CD', "EXP" = 'NE.EXP.GNFS.CD')
+
+# Baixar os dados do WDI
+dados <- WDI(country = "all", 
+             indicator = c("IMP" = "NE.IMP.GNFS.CD", "EXP" = "NE.EXP.GNFS.CD"), 
+             start = 2023, 
+             end = 2023)
+
+# Filtrar para remover agregados
+dados <- dados[!grepl("World|Union|Region|Developing|Developed|OECD|Euro|High income|Low income|Middle income", 
+                      dados$country, ignore.case = TRUE), ]
+
+# Lista de países principais
+paises_principais <- c("Brazil", "United States", "China", "India", "Germany", "Japan", "Italy", "France")
+
+# Filtrar para manter apenas os países principais
+dados <- dados[dados$country %in% paises_principais, ]
+
+# Substituir os nomes dos países para português do Brasil
+dados$country <- recode(dados$country,
+                        "Brazil" = "Brasil",
+                        "United States" = "Estados Unidos",
+                        "China" = "China",
+                        "India" = "Índia",
+                        "Germany" = "Alemanha",
+                        "Japan" = "Japão",
+                        "Italy" = "Itália",
+                        "France" = "França")
+
+# Função para formatar os valores em bilhões
+formato_bilhoes <- function(x) {
+  paste0(x / 1e9, " bi")
+}
+
+# Criar uma coluna para destacar o Brasil com um tamanho maior
+dados$size <- ifelse(dados$country == "Brasil", 4, 2)
+
+# Criar o gráfico de dispersão
+ggplot(dados, aes(x = EXP, y = IMP)) +
+  # Plotar os pontos com tamanhos diferentes (todos em vermelho)
+  geom_point(color = "red", aes(size = size)) +
+  scale_size_identity() +
+  # Adicionar rótulos para todos os países
+  geom_text_repel(aes(label = country), 
+                  size = 4, 
+                  box.padding = 1, 
+                  point.padding = 0.5, 
+                  force = 10, 
+                  nudge_y = ifelse(dados$country == "Brasil", 2e11, 0), 
+                  max.overlaps = Inf, 
+                  segment.color = "gray50", 
+                  segment.size = 0.5) +
+  # Formatar os eixos
+  scale_x_continuous(labels = formato_bilhoes, 
+                     breaks = seq(0, 5e12, by = 1e12), 
+                     limits = c(0, 5e12)) +
+  scale_y_continuous(labels = formato_bilhoes, 
+                     breaks = seq(0, 5e12, by = 1e12), 
+                     limits = c(0, 5e12)) +
+  # Títulos e labels
+  labs(title = "Dispersão entre Exportações e Importações (2023)", 
+       x = "Exportações (US$)", 
+       y = "Importações (US$)") +
+  # Tema ajustado
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none", 
+        axis.title.x = element_text(margin = margin(t = 15)), 
+        axis.title.y = element_text(margin = margin(r = 15)), 
+        plot.title = element_text(hjust = 0.5, face = "bold"), 
+        panel.grid.major = element_line(color = "gray90"), 
+        panel.grid.minor = element_line(color = "gray95"))
+```
+
+## Gráfico Temporal
+
+No gráfico abaixo podemos observar a evolução do acesso à internet pela população japonesa entre os anos de 1986 e 2022. A linha do tempo revela uma trajetória de crescimento contínuo, especialmente a partir do início dos anos 2000. Esse cenário começa a mudar com o avanço das tecnologias digitais, e a partir de 2000 o Japão passa a registrar um crescimento acelerado na proporção de habitantes conectados à internet.
+
+Durante a década de 2000, o percentual de acesso mais que triplica, refletindo a expansão da infraestrutura digital e a maior disseminação da internet no cotidiano da sociedade.
+
+A partir de 2010, o país alcança níveis superiores a 80%, mantendo-se relativamente estável nos anos seguintes, o que sugere uma maturidade tecnológica e uma cobertura quase total da população. A marca de 90% é atingida após 2015, consolidando o Japão como uma das nações com maior nível de conectividade digital no mundo.
+
+Os dados utilizados nesta análise foram extraídos do banco de dados **World Development Indicators (WDI)**, utilizando a variável **“Internet users (per 100 people)”**, identificada pelo código **IT.NET.USER.ZS**, que representa o percentual da população com acesso à internet.
+
+```{R}
+#| label: grafico-japao-final
+#| echo: false
+#| warning: false
+#| message: false
+
+
+
+library(WDI)
+library(ggplot2)
+library(gganimate)
+library(dplyr)
+
+# Dados de acesso à internet no Japão
+dados_japao <- WDI(country = "JP", 
+                   indicator = "IT.NET.USER.ZS", 
+                   start = 1986, end = 2022)
+
+colnames(dados_japao)[colnames(dados_japao) == "IT.NET.USER.ZS"] <- "Internet"
+
+# Criar colunas auxiliares
+dados_japao <- dados_japao %>%
+  mutate(
+    label_pct = ifelse(year %% 10 == 0, paste0(round(Internet), "%"), NA),
+    pausa = ifelse(year %% 10 == 0, 3, 1)  # pausa de 3s nos anos múltiplos de 10
+  )
+
+# Gráfico com destaque maior nas porcentagens
+grafico <- ggplot(dados_japao, aes(x = year, y = Internet)) +
+  geom_line(color = "gray80", size = 1.2) +  # linha base
+  
+  # bolinhas pequenas que mostram o passado
+  geom_point(aes(group = 1), color = "purple", size = 3, alpha = 0.4) +
+  
+  # bolinha atual grande
+  geom_point(aes(group = 1), color = "purple", size = 6) +
+  
+  # porcentagem apenas em anos selecionados
+  geom_text(aes(label = label_pct), 
+            vjust = -1.5, size = 6, fontface = "bold",
+            color = "purple", na.rm = TRUE) +
+  
+  labs(
+    title = "🌐 Evolução do Acesso à Internet no Japão (1986-2022) 🌐",
+    subtitle = "Ano: {closest_state}",
+    x = "Ano", y = "% da População"
+  ) +
+  ylim(0, 105) +
+  theme_minimal(base_size = 14) +
+  
+  # animação
+  transition_states(
+    states = year,
+    transition_length = 1,
+    state_length = dados_japao$pausa
+  ) +
+  shadow_mark(past = TRUE, future = FALSE, colour = "purple", size = 3, alpha = 0.4) +
+  ease_aes('linear')
+
+grafico
+```
+
+\
