@@ -1,0 +1,134 @@
+---
+title: "Arthur Teske - SGS"
+format:
+  html:
+    theme:
+      dark: darkly
+      light: flatly
+    fontsize: 1.2rem  # ou 1.3rem, 1.4rem etc.
+
+---
+## Código escolhido
+
+Para esse projeto decidi escolher a váriavel, taxa de inadimplência das operações de crédito do Sistema Financeiro Nacional - Santa Catarina - Pessoas físicas (15884 - código no BCB).
+
+A Taxa de Inadimplência mostra a proporção de empréstimos e financiamentos feitos por pessoas físicas em Santa Catarina que estão com pagamento atrasado há mais de 90 dias. Ou seja, ela indica quantos desses contratos estão com pelo menos uma parcela vencida há bastante tempo.
+
+Esse dado é calculado pelo Banco Central e ajuda a entender se as pessoas estão conseguindo manter seus compromissos financeiros em dia. Quando essa taxa sobe, pode ser sinal de dificuldades econômicas para as famílias.
+
+```{r}
+#| label: plot-penguins
+#| echo: false
+#| warning: false
+
+#PACOTES####
+####install.packages("GetBCBData")
+####install.packages("zoo")
+###install.packages("showtext")
+
+library(GetBCBData)
+library(ggplot2)
+library(zoo)
+library(dplyr)
+library(tidyr)
+library(showtext) # Para fontes Google
+font_add_google("Source Sans Pro", "ssp")  # Ou "Roboto"
+showtext_auto()
+
+
+my.id <- c(inadsc = 15884)
+
+df.bcb <- gbcbd_get_series(id = my.id,
+                           first.date = '2004-01-01',
+                           last.date = Sys.Date(),
+                           format.data = 'long',
+                           use.memoise = TRUE, 
+                           cache.path = tempdir(),
+                           do.parallel = FALSE)
+
+# Processamento
+df.bcb <- df.bcb %>%
+  arrange(ref.date) %>%
+  mutate(media_movel = zoo::rollmean(value, k = 6, fill = NA))
+
+df_plot <- df.bcb %>%
+  select(ref.date, value, media_movel) %>%
+  pivot_longer(cols = c(value, media_movel),
+               names_to = "Tipo",
+               values_to = "Taxa")
+
+eventos <- data.frame(
+  ref.date = as.Date(c("2008-09-15", "2020-03-11")),
+  Evento = c("Crise 2008", "COVID-19")
+)
+
+df_plot$Tipo <- recode(df_plot$Tipo,
+                       "value" = "Série Original",
+                       "media_movel" = "Média Móvel (6 meses)")
+
+p <- ggplot() +
+  geom_line(data = df_plot, aes(x = ref.date, y = Taxa, color = Tipo, linetype = Tipo), size = 1.2) +
+
+  geom_vline(data = eventos, aes(xintercept = as.numeric(ref.date)),
+             linetype = "dotted", size = 1.1, color = "gray40", show.legend = FALSE) +
+
+  geom_text(data = eventos, aes(x = ref.date, y = max(df.bcb$value, na.rm = TRUE) + 0.15, label = Evento),
+            angle = 90, vjust = -0.5, size = 5, family = "ssp", color = "gray20") +
+
+  scale_color_manual(
+    name = NULL,
+    values = c(
+      "Série Original" = "#1f77b4",
+      "Média Móvel (6 meses)" = "#ff7f0e"
+    )
+  ) +
+  scale_linetype_manual(
+    name = NULL,
+    values = c(
+      "Série Original" = "solid",
+      "Média Móvel (6 meses)" = "longdash"
+    )
+  ) +
+  scale_x_date(date_breaks = "3 years", date_labels = "%Y") +
+
+  labs(
+    title = "Taxa de inadimplência - SC - Pessoas Físicas",
+    subtitle = paste0(format(min(df.bcb$ref.date), "%Y-%m-%d"), " a ", format(max(df.bcb$ref.date), "%Y-%m-%d")),
+    y = "Taxa de inadimplência (%)",
+    x = NULL,
+    caption = "Fonte: Banco Central do Brasil | Elaboração: Arthur Teske"
+  ) +
+
+theme_minimal(base_family = "ssp", base_size = 18) +  # aumente para 18, 20, ou até 22
+theme(
+  plot.title = element_text(size = 24, face = "bold"),
+  plot.subtitle = element_text(size = 18),
+  axis.title = element_text(size = 16),
+  axis.text = element_text(size = 14),
+  legend.title = element_text(size = 16),
+  legend.text = element_text(size = 14),
+  plot.caption = element_text(size = 12)
+)
+
+
+ggsave("grafico_inadimplencia.png", plot = p, width = 10, height = 6, bg = "white", dpi = 300)
+
+```
+## Gráfico interativo
+
+<div style="text-align: center;">
+  <a href="grafico_inadimplencia.png" target="_blank">
+    <img src="grafico_inadimplencia.png" alt="Gráfico de inadimplência" width="600" 
+         style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.3s;" 
+         onmouseover="this.style.transform='scale(1.03)'" 
+         onmouseout="this.style.transform='scale(1)'">
+  </a>
+  <p><small>Clique na imagem para ampliar</small></p>
+</div>
+
+## Análise Gráfica
+  Apesar de ambos os eventos representarem choques significativos na economia, a crise financeira global de 2008 teve um impacto estrutural mais acentuado sobre a taxa de inadimplência em Santa Catarina do que a pandemia de COVID-19.
+  
+  Em 2008, o epicentro da crise foi o próprio sistema financeiro, o que resultou em uma forte restrição ao crédito, aumento da aversão ao risco e elevação nas taxas de juros, fatores que contribuíram diretamente para o aumento da inadimplência entre pessoas físicas. Já em 2020, embora os efeitos econômicos da pandemia tenham sido profundos, o sistema bancário se manteve resiliente.
+  
+  Medidas emergenciais como o auxílio financeiro direto às famílias, programas de preservação de renda e emprego, além da forte redução na taxa básica de juros (Selic), atuaram como mecanismos de contenção, suavizando o impacto da crise sanitária sobre o endividamento e a inadimplência no curto prazo.
