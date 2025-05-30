@@ -1,0 +1,147 @@
+---
+title: "Arthur Teske - Reservas de Ouro"
+format:
+  html:
+    theme:
+      dark: darkly
+      light: flatly
+---
+
+## Código escolhido
+
+Para esse projeto, decidi escolher a variável Reservas Internacionais de Ouro do Brasil (código 3553 no site 	
+SGS - Sistema Gerenciador de Séries Temporais).
+
+  Essa série representa a quantidade de ouro detida pelo Brasil como parte de suas reservas internacionais, convertida de onças troy para toneladas. 
+  
+Esses dados são fundamentais para analisar a estratégia de reservas do país e sua estabilidade financeira em contextos econômicos globais.
+
+```{r}
+#| label: plot-ouro-estatico
+#| echo: false
+#| warning: false
+#| fig-align: center
+#| fig-width: 10
+#| fig-height: 6
+
+# Instalar pacotes (se necessário)
+# install.packages(c("GetBCBData", "dplyr", "ggplot2", "lubridate", "gganimate", "scales", "gifski", "ragg", "viridis"))
+
+# Carregar pacotes
+library(GetBCBData)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(gganimate)
+library(scales)
+library(gifski)
+library(ragg)
+library(viridis) # Carregar o pacote viridis
+
+# Baixar dados da série 3553 (Reservas de ouro - mil oz troy)
+ouro <- gbcbd_get_series(id = 3553, first.date = "2000-12-31")
+
+# Converter de mil onças troy para toneladas (1 mil oz troy ≈ 0.0311035 toneladas)
+ouro <- ouro %>%
+  mutate(data = as.Date(ref.date),
+         toneladas = value * 0.0311035)
+
+# Criar coluna com início de cada período de 3 anos (o exemplo mostra 3 anos)
+ouro <- ouro %>%
+  mutate(ano = year(data),
+         ano_inicio = 2001 + floor((ano - 2001) / 3) * 3)
+
+# Calcular média por período
+media_por_periodo <- ouro %>%
+  group_by(ano_inicio) %>%
+  summarise(media_toneladas = mean(toneladas, na.rm = TRUE)) %>%
+  ungroup()
+
+# Determinar o ano inicial do último período
+ultimo_periodo <- max(media_por_periodo$ano_inicio)
+
+# Criar um vetor de cores com tons de amarelo e ouro para o último período
+cores_personalizadas <- ifelse(media_por_periodo$ano_inicio == ultimo_periodo,
+                               "#FFD700", # Cor ouro
+                               viridis(n = length(unique(media_por_periodo$ano_inicio)) - 1, option = "plasma")[rank(unique(media_por_periodo$ano_inicio))])
+
+# Garantir que o número de cores corresponda ao número de períodos
+if (length(cores_personalizadas) < length(unique(media_por_periodo$ano_inicio))) {
+  cores_personalizadas <- c(viridis(n = length(unique(media_por_periodo$ano_inicio)) - 1, option = "plasma"), "#FFD700")
+}
+if (length(cores_personalizadas) > length(unique(media_por_periodo$ano_inicio))) {
+  cores_personalizadas <- cores_personalizadas[-length(cores_personalizadas)]
+  cores_personalizadas <- c(cores_personalizadas, "#FFD700")
+}
+
+# Criar gráfico animado com cores personalizadas
+grafico_animado <- ggplot(media_por_periodo, aes(x = factor(ano_inicio),
+                                                   y = media_toneladas,
+                                                   fill = factor(ano_inicio))) +
+  geom_col(show.legend = FALSE, color = "gray30") + # Adicionada borda escura
+  geom_text(aes(label = round(media_toneladas, 1)),
+            vjust = -0.5,
+            size = 3,
+            color = "black") +
+  scale_y_continuous(limits = c(0, max(media_por_periodo$media_toneladas) * 1.3)) +
+  scale_fill_manual(values = setNames(cores_personalizadas, unique(factor(media_por_periodo$ano_inicio)))) +
+  labs(title = "Reservas de Ouro do Brasil",
+       subtitle = "Média em toneladas por períodos de 3 anos: {closest_state}",
+       x = "Ano inicial do período",
+       y = "Média de toneladas",
+       caption = "Fonte: BCB - Série 3553 | Conversão: 1 mil oz troy ≈ 0.0311035 t") +
+  theme_bw() + # Usando o tema bw
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0),
+    plot.subtitle = element_text(size = 12, color = "gray30", hjust = 0),
+    plot.caption = element_text(size = 7, color = "gray50", hjust = 1, vjust = 1),
+    axis.title = element_text(size = 9),
+    axis.text = element_text(size = 8),
+    plot.margin = unit(c(0.5, 1, 0.5, 1), "cm")
+  ) +
+  transition_states(ano_inicio,
+                    transition_length = 2,
+                    state_length = 1) +
+  enter_grow() +
+  shadow_mark(past = TRUE, future = FALSE)
+```
+## Gráfico interativo
+```{r render_gif, eval=TRUE, echo=FALSE, fig.show='animate', dev='ragg_png'}
+
+# Exportar o GIF (só é feito uma vez, não será refeito a cada renderização)
+gif_path <- "grafico_reservas_ouro.gif"
+
+if (!file.exists(gif_path)) {
+  animate(
+    grafico_animado,
+    duration = 10,
+    fps = 15,
+    width = 1000,
+    height = 550,
+    units = "px",
+    res = 192,
+    renderer = gifski_renderer(gif_path)
+  )
+}
+
+animate(
+  grafico_animado,
+  duration = 10,
+  fps = 15,
+  width = 1000,
+  height = 550,
+  units = "px",
+  res = 192,
+  renderer = gifski_renderer()
+)
+```
+::: {.center}
+:::
+
+## Análise Gráfica
+
+As reservas internacionais de ouro do Brasil mostram uma tendência de estabilidade ao longo dos anos, com variações que refletem decisões estratégicas do Banco Central e contextos econômicos globais. A agregação em períodos de três anos suaviza flutuações anuais, permitindo uma visão mais clara das médias ao longo do tempo.
+
+Após um período de estabilidade ou leve declínio entre 2001 e 2010, onde as médias se situavam em torno de 33 a 36 toneladas, observa-se um crescimento marcante e contínuo a partir de 2010, com uma aceleração notável nos períodos mais recentes, atingindo 129.6 toneladas em 2022 e 2025. 
+
+Esse movimento reflete uma estratégia de diversificação e busca por segurança financeira do Banco Central do Brasil em face da volatilidade econômica global, como a crise de 2008 e a pandemia de COVID-19, onde o ouro atua como um porto seguro contra incertezas e desvalorização monetária.
