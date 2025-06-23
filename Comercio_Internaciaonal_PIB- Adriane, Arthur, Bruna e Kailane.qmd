@@ -1,0 +1,214 @@
+---
+title: "Comércio (como % do PIB)"
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    toc: true              # Ativa o menu lateral
+    toc-location: right    # Coloca o menu na direita
+    number-sections: true  # Numera os títulos
+---
+
+## **Apresentação e Código Escolhido** {#sec-apresentação-e-código-escolhido}
+
+Trabalho executado pelos alunos(as): Adriane Migliorini, Arthur Teske, Bruna Knopf e Kailane Duarte.
+
+Código escolhido foi o NE.TRD.GNFS.ZS, utilizado pelo World Data Bank.\
+\
+Indicador "Trade (% of GDP)", que significa "Comércio (% do PIB)" em português. Ele mede a soma das exportações e importações de bens e serviços de um país como uma porcentagem do seu Produto Interno Bruto (PIB). Esse indicador reflete a abertura comercial de uma economia em relação ao tamanho de sua economia total.
+
+## Gráfico
+
+```{r setup, include=FALSE}
+library(WDI)
+library(tidyverse)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(gganimate)
+library(RColorBrewer)
+library(gifski)
+library(ragg)
+```
+
+```{r gerar_grafico, echo=FALSE, message=FALSE, warning=FALSE}
+# Indicador
+indicator <- c("Comércio total (% do PIB)" = "NE.TRD.GNFS.ZS")
+dat_trade <- WDI(indicator, country = "all", start = 2000, end = 2022)
+
+# Mapa base
+world <- ne_countries(returnclass = "sf") %>%
+  select(iso_a2, geometry)
+anos <- 2000:2022
+base_expandida <- expand.grid(iso_a2 = unique(world$iso_a2), year = anos)
+
+dat_trade_expandido <- base_expandida %>%
+  left_join(dat_trade, by = c("iso_a2" = "iso2c", "year"))
+
+mapa_dados <- world %>%
+  left_join(dat_trade_expandido, by = "iso_a2")
+
+# Categorização
+breaks_trade <- c(0, 52.57, 83.62, 119.71, 169.80, Inf)
+labels_trade <- c("< 52.57", "52.57 – 83.62", "83.62 – 119.71", "119.71 – 169.80", "> 169.80")
+
+mapa_dados <- mapa_dados %>%
+  mutate(faixa = cut(`Comércio total (% do PIB)`,
+                     breaks = breaks_trade,
+                     labels = labels_trade))
+# Gráfico
+grafico <- ggplot(mapa_dados, aes(group = iso_a2, fill = faixa)) +
+  geom_sf(color = "gray30", size = 0.1) +
+  scale_fill_brewer(palette = "YlOrRd", na.value = "gray90", name = "% do PIB") +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 11),
+    plot.subtitle = element_text(face = "bold", size = 20),
+    plot.title = element_text(face = "bold", size = 16)
+  ) +
+  labs(
+    title = "Comércio Internacional como % do PIB (2000–2022)",
+    subtitle = "Ano: {closest_state}",
+    caption = "Fonte: World Bank (WDI)"
+  ) +
+  transition_states(year, transition_length = 3, state_length = 1) +
+  ease_aes("linear")
+```
+
+```{r exportar_gif, eval=TRUE, echo=FALSE, fig.show='animate', dev='ragg_png'}
+# Caminho do GIF
+gif_path <- "comercio_pib.gif"
+
+# Criar apenas se ainda não existe
+if (!file.exists(gif_path)) {
+  animate(
+    grafico,
+    duration = 15,
+    fps = 10,
+    width = 1000,
+    height = 600,
+    units = "px",
+    res = 150,
+    renderer = gifski_renderer(gif_path)
+  )
+}
+
+# Exibir
+animate(
+  grafico,
+  duration = 15,
+  fps = 10,
+  width = 1000,
+  height = 600,
+  units = "px",
+  res = 150,
+  renderer = gifski_renderer()
+)
+```
+
+## **Contextualização histórica e causas das quedas**
+
+Entre os anos de 2000 e 2022, o comércio internacional vivenciou diferentes ciclos de expansão e retração. A partir da análise do indicador Comércio (% do PIB), disponibilizado pelo Banco Mundial, é possível observar como eventos de grande relevância econômica afetaram diretamente as trocas comerciais entre os países.
+
+No ano de 2001, os efeitos do colapso da chamada Bolha da Internet (Dotcom Bubble) tornaram-se evidentes. Durante a década de 1990, houve uma elevação expressiva no valor das ações de empresas do setor de tecnologia, especialmente nos Estados Unidos. Conforme destacado pela Investopedia (2024), esse crescimento foi impulsionado por expectativas de lucro que, na prática, não se confirmaram.
+
+Com o estouro da bolha, os mercados financeiros sofreram uma forte queda, provocando retração no consumo e nos investimentos em escala global. De acordo com a BBC News (2016), inúmeras empresas de tecnologia não resistiram, resultando em uma diminuição na demanda por produtos eletrônicos e industriais. Esse cenário gerou uma desaceleração nas exportações e importações, afetando diretamente o volume do comércio internacional, especialmente nos setores ligados à tecnologia. O FMI (2001) também registra que o crescimento econômico mundial foi impactado negativamente, o que refletiu na redução do indicador Comércio (% do PIB).
+
+Anos mais tarde, em 2008 e 2009, a economia global enfrentou outra crise de grandes proporções: a Crise Financeira Global, originada nos Estados Unidos. Seu principal fator foi o colapso do mercado de hipotecas subprime, que desencadeou uma crise bancária e de crédito em escala mundial. Segundo o FMI (2009), diversas instituições financeiras de grande porte, como o Lehman Brothers, faliram, ampliando os efeitos da crise.
+
+Esse contexto resultou em uma contração acentuada da oferta de crédito e em recessões simultâneas em várias economias desenvolvidas. A OMC (2009) aponta que houve uma queda significativa na demanda por bens e serviços, provocando uma redução expressiva no volume de exportações e importações. Além disso, a BBC News (2008) destaca uma forte desaceleração da produção industrial mundial, fator que também contribuiu para a diminuição do indicador Comércio (% do PIB) no ano de 2009.
+
+Mais recentemente, em 2020, o mundo enfrentou os impactos da pandemia da COVID-19, que gerou efeitos ainda mais severos sobre o comércio internacional. Com o avanço da crise sanitária, países de diferentes regiões implementaram medidas restritivas como lockdowns, fechamento de fronteiras e suspensão de atividades econômicas essenciais. De acordo com a OMC (2020), essas medidas afetaram diretamente as cadeias globais de suprimentos, resultando em escassez de produtos e queda significativa no volume de comércio.
+
+O Banco Mundial (2020) ressalta que a produção industrial global sofreu uma redução considerável, com fábricas interrompendo suas atividades em diversas partes do mundo. Além disso, a demanda por bens não essenciais caiu de forma acentuada. Segundo a UNCTAD (2020), os problemas logísticos, como a falta de contêineres e o aumento dos custos de transporte internacional, agravaram ainda mais os impactos negativos, tornando a queda registrada em 2020 uma das mais expressivas da série histórica do indicador Comércio (% do PIB).
+
+## **Análise Regional e Desigualdade no Comércio**
+
+A análise revela diferenças significativas na distribuição do comércio internacional entre continentes e blocos econômicos entre 2000 e 2022, bem como nas respostas regionais às quedas comerciais identificadas em 2001, 2009 e 2020. Essas variações refletem estruturas produtivas, dependências de exportação e a presença de acordos comerciais, que moldam a resiliência e a recuperação das economias frente a crises globais.
+
+**Distribuição do Comércio entre Continentes e Blocos Econômicos**
+
+A Europa, especialmente a União Europeia (UE), destaca-se como uma das regiões com maior abertura comercial, com o indicador Comércio (% do PIB) frequentemente superando 80% em países como Alemanha e Holanda, conforme dados do Banco Mundial (2020). A integração econômica promovida por acordos intra-UE, como o mercado único, e tratados comerciais com outras regiões, facilita um alto volume de exportações e importações, especialmente em bens manufaturados e serviços. Por outro lado, a América Latina, incluindo blocos como o Mercosul, apresenta valores mais baixos, com médias regionais em torno de 40-50%, segundo a CEPAL (2023). Países como Brasil e Argentina, com economias mais voltadas para commodities, dependem fortemente de exportações primárias, o que limita a diversificação comercial (Baumann, 2011). A Ásia, liderada por economias como China e Singapura, mostra uma abertura comercial elevada, com Comércio (% do PIB) frequentemente acima de 100% em nações orientadas à exportação, como Singapura, devido à sua forte integração nas cadeias globais de valor (OMC, 2020). A África, por sua vez, apresenta os menores índices, com médias regionais abaixo de 30%, reflexo de infraestruturas limitadas e baixa diversificação econômica (OMC, 2020).
+
+**Regiões Mais Afetadas pelas Quedas e Recuperação**
+
+As crises de 2001, 2009 e 2020 impactaram o comércio global de forma desigual. Em 2001, a Bolha da Internet afetou principalmente economias desenvolvidas, como a UE e os Estados Unidos, devido à sua dependência de setores tecnológicos. Dados do Banco Mundial mostram que a UE registrou quedas moderadas no Comércio (% do PIB), mas recuperou-se rapidamente devido à sua diversificação econômica e acordos comerciais robustos (Santos & Lisboa, 2010). A América Latina, embora menos exposta ao setor tecnológico, sofreu com a redução da demanda por commodities, especialmente no Brasil, onde a recuperação foi mais lenta devido à dependência de exportações primárias (Arbache, 2002).
+
+Em 2009, a Crise Financeira Global teve impactos mais severos na UE e na América do Norte, com quedas acentuadas no Comércio (% do PIB) devido à contração do crédito e à queda na demanda por bens manufaturados (OMC, 2009). A Ásia, embora também afetada, demonstrou maior resiliência, especialmente a China, que manteve políticas de estímulo econômico e uma base exportadora diversificada, permitindo uma recuperação mais rápida (CEPAL, 2023). A América Latina enfrentou dificuldades adicionais, com países como Brasil e México sofrendo quedas significativas devido à redução dos preços de commodities e à interrupção das cadeias de suprimentos (Castro & Souza, 1999).
+
+A pandemia de COVID-19 em 2020 gerou impactos generalizados, mas a Ásia se destacou pela recuperação mais célere. Países como China e Coreia do Sul, com cadeias produtivas robustas e rápida resposta governamental, retomaram o crescimento do comércio já em 2021 (OMC, 2020). A UE também se recuperou rapidamente, beneficiada por políticas fiscais coordenadas e acordos comerciais (Santos & Lisboa, 2010). A América Latina, no entanto, enfrentou uma recuperação mais lenta, com países como Brasil e Argentina prejudicados por problemas logísticos e dependência de exportações primárias (CEPAL, 2023). A África foi a região mais afetada, com quedas prolongadas devido à fragilidade de suas infraestruturas e baixa integração comercial (OMC, 2020).
+
+**Causas das Diferenças Regionais**
+
+As diferenças regionais no impacto e na recuperação das quedas no Comércio (% do PIB) decorrem de fatores estruturais e conjunturais. A UE beneficia-se de uma estrutura produtiva diversificada, com forte presença em manufaturas e serviços, além de acordos comerciais que mitigam choques externos (Santos & Lisboa, 2010). A Ásia, especialmente economias orientadas à exportação, possui cadeias de suprimentos integradas e políticas industriais que favorecem a resiliência (OMC, 2020). Em contrapartida, a América Latina enfrenta desafios devido à sua dependência de commodities, o que a torna vulnerável a flutuações nos preços internacionais (Arbache, 2002). A África, com baixa diversificação econômica e infraestrutura limitada, sofre com barreiras logísticas e menor acesso a mercados globais (Baumann, 2011). Acordos comerciais, como os do Mercosul ou da ASEAN, também influenciam a recuperação, sendo mais eficazes em regiões com maior integração, como a UE e a Ásia (Santos & Lisboa, 2010).
+
+**Contrastes Regionais**
+
+Os contrastes regionais são evidentes. Enquanto a UE e a Ásia se beneficiam de economias diversificadas e acordos comerciais robustos, a América Latina e a África enfrentam limitações estruturais que amplificam os impactos das crises. Por exemplo, o Brasil, apesar de integrado ao Mercosul, depende fortemente de exportações de commodities, o que o torna menos resiliente que países asiáticos como a China, que diversificam suas exportações entre manufaturas e tecnologia (Baumann, 2011). A África, com menor abertura comercial, enfrenta desafios adicionais, como custos logísticos elevados e baixa participação em cadeias globais de valor, o que prolonga sua recuperação (OMC, 2020). Esses contrastes destacam a importância de políticas que promovam diversificação econômica e integração comercial para mitigar os impactos de crises globais.
+
+## **Conclusões, implicações econômicas e recomendações**
+
+A análise realizada ao longo deste trabalho evidencia como o comércio internacional é sensível a choques externos e a eventos de grande magnitude econômica e social. As três principais quedas identificadas (2001, 2009 e 2020) demonstram que crises financeiras, sanitárias ou estruturais têm efeitos imediatos e expressivos na dinâmica comercial global, afetando tanto o volume quanto a participação do comércio no PIB mundial.
+
+Essas quedas no comércio internacional impactam diretamente o crescimento econômico dos países. O comércio exterior é um importante motor de crescimento, pois movimenta cadeias produtivas, gera empregos, atrai investimentos e estimula a inovação tecnológica. Segundo a UNCTAD (2022), quando há uma retração nas exportações e importações, os efeitos negativos se espalham por diversos setores da economia, desde a indústria até os serviços logísticos e financeiros.
+
+No caso dos países exportadores, a queda no comércio significa redução na demanda por seus produtos no mercado externo, o que afeta negativamente o PIB, o nível de emprego e a arrecadação de divisas. Países fortemente dependentes de commodities, por exemplo, sofrem ainda mais nesses momentos, pois seus orçamentos públicos e balanças comerciais ficam diretamente vulneráveis à queda nas exportações (CEPAL, 2023).
+
+Para os países importadores, os impactos podem ser sentidos através de escassez de produtos, elevação de preços e dificuldades no abastecimento de setores produtivos que dependem de insumos importados. Além disso, crises globais tendem a gerar instabilidade nos fluxos de capitais e nos mercados cambiais, aumentando o custo de financiamento e prejudicando o ambiente macroeconômico.
+
+Outro risco importante identificado é a excessiva dependência comercial de mercados ou parceiros específicos. Países que concentram suas exportações em poucos destinos ou produtos ficam mais expostos aos efeitos de crises externas. Da mesma forma, a falta de diversificação nas cadeias de suprimentos tornou-se evidente na pandemia de 2020, quando várias economias enfrentaram gargalos logísticos e interrupções produtivas.
+
+Diante desses desafios, algumas recomendações podem ser feitas:
+
+·        Diversificação Comercial: Países devem buscar ampliar seus mercados consumidores e fornecedores, evitando a concentração excessiva em poucos parceiros comerciais (CEPAL, 2023).
+
+·        Fortalecimento de Acordos Multilaterais: A participação em blocos e acordos comerciais pode contribuir para reduzir barreiras ao comércio e criar redes de cooperação que ajudem na recuperação em momentos de crise.
+
+·        Investimento em Infraestrutura Logística: Melhorias em portos, rodovias, ferrovias e sistemas de transporte multimodal aumentam a resiliência da economia frente a choques externos (UNCTAD, 2022).
+
+·        Apoio à Inovação e à Indústria Local: Incentivar a produção doméstica de bens estratégicos reduz a vulnerabilidade frente à escassez de importações em tempos de crise (CEPAL, 2023).
+
+·        Monitoramento de Riscos Globais: A criação de sistemas de alerta e de planejamento para riscos comerciais pode ajudar na preparação e na resposta rápida diante de novas crises (FMI, 2009).
+
+Por fim, a análise da abertura comercial e das suas oscilações ao longo das últimas décadas reforça a importância de políticas econômicas que promovam a integração ao comércio internacional, mas que, ao mesmo tempo, garantam a segurança e a estabilidade das economias locais diante das incertezas do cenário global.
+
+## **Referências**
+
+ARBACHE, J. S. Comércio internacional, integração e crescimento econômico: evidências para o Brasil. **Revista Brasileira de Economia**, Rio de Janeiro, v. 56, n. 4, p. 567-590, out./dez. 2002.
+
+BANCO MUNDIAL. **Trade (% of GDP) – NE.TRD.GNFS.ZS**. \[S.l.\]: Banco Mundial, \[2025\]. Disponível em: https://data.worldbank.org/indicator/NE.TRD.GNFS.ZS. Acesso em: 22 jun. 2025.
+
+BAUMANN, R. (org.). **O Brasil e os desafios da integração regional**. Rio de Janeiro: Elsevier, 2011.
+
+BBC NEWS. **A bolha da internet: como a crise das empresas pontocom explodiu no início dos anos 2000**. \[S.l.\]: BBC News, 2016. Disponível em: https://www.bbc.com/portuguese/noticias/2016/03/160311_bolha_internet_crise_lgb. Acesso em: 22 jun. 2025.
+
+BBC NEWS. **Entenda a crise financeira mundial de 2008**. \[S.l.\]: BBC News, 2008. Disponível em: https://www.bbc.com/portuguese/reporterbbc/story/2008/10/081008_criseexplicacao_pu.shtml. Acesso em: 22 jun. 2025.
+
+CASTRO, A. B. de; SOUZA, N. de. Abertura comercial e crescimento: uma análise para a América Latina. **Estudos Econômicos**, São Paulo, v. 29, n. 3, p. 345-370, jul./set. 1999.
+
+COMISSÃO ECONÔMICA PARA A AMÉRICA LATINA E O CARIBE (CEPAL). **Perspectivas econômicas da América Latina 2023: comércio e integração regional**. Santiago: CEPAL, 2023. Disponível em: https://www.cepal.org/pt-br. Acesso em: 22 jun. 2025.
+
+FUNDO MONETÁRIO INTERNACIONAL (FMI). **A crise financeira global: perguntas e respostas**. \[S.l.\]: FMI, 2009. Disponível em: https://www.imf.org/external/np/exr/faq/gfc.htm. Acesso em: 22 jun. 2025.
+
+FUNDO MONETÁRIO INTERNACIONAL (FMI). **World Economic Outlook, May 2001**. Washington, DC: FMI, 2001. Disponível em: https://www.imf.org/-/media/Websites/IMF/imported-flagship-issues/external/pubs/ft/weo/2001/01/pdf/\_chapter1pdf.ashx. Acesso em: 22 jun. 2025.
+
+INSTITUTO BRASILEIRO DE ECONOMIA; FUNDAÇÃO GETULIO VARGAS (IBRE/FGV). **Conjuntura econômica**. Rio de Janeiro: IBRE/FGV, \[s.d.\]. Disponível em: http://www.funcex.org.br. Acesso em: 22 jun. 2025.
+
+INVESTOPEDIA. **Dotcom bubble**. \[S.l.\]: Investopedia, \[2025\]. Disponível em: https://www.investopedia.com/terms/d/dotcom-bubble.asp. Acesso em: 22 jun. 2025.
+
+ORGANIZAÇÃO MUNDIAL DO COMÉRCIO (OMC). **COVID-19 and world trade: the WTO’s response to COVID-19**. \[S.l.\]: OMC, \[2025\]. Disponível em: https://www.wto.org/english/tratop_e/covid19_e/trading_pandemic_e.pdf. Acesso em: 22 jun. 2025.
+
+ORGANIZAÇÃO MUNDIAL DO COMÉRCIO (OMC). **Highlights of world trade in 2020 and the impact of COVID-19**. \[S.l.\]: OMC, \[2021\]. Disponível em: https://www.wto.org/english/res_e/booksp_e/anrep_e/anrep21_spotlight_impact-of-covid-19_e.pdf. Acesso em: 22 jun. 2025.
+
+ORGANIZAÇÃO MUNDIAL DO COMÉRCIO (OMC). **Relatórios anuais**. Genebra: OMC, 2020. Disponível em: https://www.wto.org/portuguese. Acesso em: 22 jun. 2025.
+
+REVISTA BRASILEIRA DE COMÉRCIO EXTERIOR (RBCE). Rio de Janeiro: Fundação Centro de Estudos do Comércio Exterior (FUNCEX), \[s.d.\]. Disponível em: http://www.funcex.org.br. Acesso em: 22 jun. 2025.
+
+SANTOS, E. R.; LISBOA, M. B. Acordos comerciais e desempenho econômico: uma análise dos blocos regionais. **Revista de Economia Política**, São Paulo, v. 30, n. 2, p. 231-250, abr./jun. 2010.
+
+THE GUARDIAN. **Global financial crisis timeline**. \[S.l.\]: The Guardian, 2008. Disponível em: https://www.theguardian.com/business/2008/aug/07/wallstreet.banking. Acesso em: 22 jun. 2025.
+
+UNITED NATIONS CONFERENCE ON TRADE AND DEVELOPMENT (UNCTAD). **Impact of the COVID-19 pandemic on trade and development**. Genebra: UNCTAD, 2022. Disponível em: https://unctad.org/system/files/official-document/osg2022d1_en.pdf. Acesso em: 22 jun. 2025.
